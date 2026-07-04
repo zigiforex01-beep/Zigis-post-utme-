@@ -143,6 +143,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 @media(max-width:480px){.yr-card .y{font-size:1.1rem}.hdr-logo{font-size:.85rem}}
 </style>
 </head>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <body>
 
 <header class="hdr">
@@ -156,6 +157,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
 </header>
 <div class="prog" id="prog"><div class="prog-fill" id="pfill"></div></div>
+
+<!-- NAME CAPTURE MODAL -->
+<div class="mbg open" id="name-modal-bg">
+  <div class="cm">
+    <h3>Welcome 👋</h3>
+    <p>Enter your name so your quiz results can be saved.</p>
+    <input type="text" id="name-input" placeholder="Your full name" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:.88rem;margin-bottom:14px;font-family:inherit" />
+    <div class="cm-btns">
+      <button class="btn btn-primary" onclick="saveName()" style="width:100%">Continue</button>
+    </div>
+  </div>
+</div>
 
 <!-- SELECT YEAR -->
 <div class="screen active" id="s-select">
@@ -238,7 +251,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <p id="conf-msg">Submit your answers? This cannot be undone.</p>
     <div class="cm-btns">
       <button class="btn btn-ghost" onclick="closeConf()">Cancel</button>
-      <button class="btn btn-danger" onclick="submit()">Submit</button>
+      <button class="btn btn-danger" onclick="submitQ()">Submit</button>
     </div>
   </div>
 </div>
@@ -1363,9 +1376,29 @@ s2:[
 };
 
 // ── STATE ──
+// ── SUPABASE ──
+const sb = supabase.createClient(
+  'https://jiwoxkruagwpgpqjilix.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imppd294a3J1YWd3cGdwcWppbGl4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMDAyNjEsImV4cCI6MjA5ODY3NjI2MX0.8Zw9NhZyCbjP0a_WTkXiAilXtMM3UHuvARn6pCv1kdQ'
+);
+let studentName = localStorage.getItem('quizStudentName') || '';
+
+function saveName(){
+  const val = document.getElementById('name-input').value.trim();
+  if(!val){ document.getElementById('name-input').focus(); return; }
+  studentName = val;
+  localStorage.setItem('quizStudentName', val);
+  document.getElementById('name-modal-bg').classList.remove('open');
+}
+
 let ST={year:null,set:null,qs:[],ans:{},cur:0,sub:false,tid:null,sec:35*60};
 
 function init(){
+  if(studentName){
+    document.getElementById('name-modal-bg').classList.remove('open');
+  } else {
+    document.getElementById('name-modal-bg').classList.add('open');
+  }
   const g=document.getElementById('yr-grid');
   Object.keys(D).sort().forEach(function(yr){
     const d=D[yr];
@@ -1516,7 +1549,25 @@ function submitQ(){
   document.getElementById('smsg').textContent=msgs[pct<30?0:pct<50?1:pct<65?2:pct<80?3:4];
   const circ=2*Math.PI*63;const rf=document.getElementById('rfill');
   rf.style.strokeDasharray=circ;rf.style.strokeDashoffset=circ-(circ*(c/tot));
+  saveResult(ST.year, ST.set, c, w, s, tot, pct);
   show('s-score');
+}
+
+async function saveResult(year, quizSet, correct, wrong, skipped, total, scorePct){
+  try{
+    await sb.from('quiz_results').insert([{
+      name: studentName || 'Anonymous',
+      year: year,
+      quiz_set: quizSet,
+      correct: correct,
+      wrong: wrong,
+      skipped: skipped,
+      total: total,
+      score_pct: scorePct
+    }]);
+  }catch(e){
+    console.error('Could not save result:', e);
+  }
 }
 
 function review(){
